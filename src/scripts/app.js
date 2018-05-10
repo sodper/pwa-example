@@ -34,9 +34,12 @@
     var selected = select.options[select.selectedIndex];
     var key = selected.value;
     var label = selected.textContent;
-    // TODO init the app.selectedCities array here
+    if (!app.selectedCities) {
+      app.selectedCities = [];
+    }
     app.getJobs(key, label);
-    // TODO push the selected city to the array and save here
+    app.selectedCities.push({key: key, label: label});
+    app.saveSelectedCities();
     app.toggleAddDialog(false);
   });
 
@@ -140,7 +143,19 @@
    */
   app.getJobs = function(key, label) {
     var url = `http://api.arbetsformedlingen.se/af/v0/platsannonser/matchning?lanid=${key}&grupperat=1`;
-    // TODO add cache logic here
+    if ('caches' in window) {
+      caches.match(url).then(function (response) {
+        if (response) {
+          response.json().then(function updateFromCache(json) {
+            var results = json;
+            results.key = key;
+            results.label = label;
+            results.created = new Date();
+            app.updateJobCard(results);
+          })
+        }
+      });
+    }
 
     // Fetch the latest data.
     var request = new XMLHttpRequest();
@@ -171,7 +186,10 @@
     });
   };
 
-  // TODO add saveSelectedCities function here
+  app.saveSelectedCities = function() {
+    var selectedCities = JSON.stringify(app.selectedCities);
+    localStorage.selectedCities = selectedCities;
+  };
 
   /*
    * Fake  data that is presented when the user first uses the app,
@@ -316,10 +334,30 @@
     }
   };
 
-  // TODO uncomment line below to test app with fake data
-  // app.updateJobCard(initialJobs);
+  app.selectedCities = localStorage.selectedCities;
+  if (app.selectedCities) {
+    app.selectedCities = JSON.parse(app.selectedCities);
+    app.selectedCities.forEach(function(city) {
+      app.getJobs(city.key, city.label);
+    });
+  } else {
+    /* The user is using the app for the first time, or the user has not
+     * saved any cities, so show the user some fake data. A real app in this
+     * scenario could guess the user's location via IP lookup and then inject
+     * that data into the page.
+     */
+    app.updateJobCard(initialJobs);
+    app.selectedCities = [
+      {key: initialJobs.key, label: initialJobs.label}
+    ];
+    app.saveSelectedCities();
+  }
 
-  // TODO add startup code here
-
-  // TODO add service worker code here
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+             .register('./service-worker.js')
+             .then(function() {
+               console.log('Service Worker Registered');
+             })
+  }
 })();
