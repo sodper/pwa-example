@@ -102,6 +102,7 @@
                                         .map(app.createAreaElement);
 
     var container = card.querySelector('.areas');
+    container.textContent = '';
 
     topAreas.forEach(function (area) {
       container.appendChild(area);
